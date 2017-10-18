@@ -150,12 +150,12 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     sess.run(tf.global_variables_initializer())
     sess.run(tf.local_variables_initializer())
 
-    step = 0
     # TODO: Implement function
     for epoch in range(epochs):
+        step = 0
         for images, labels in get_batches_fn(batch_size):
             _, loss = sess.run([train_op, cross_entropy_loss],
-                               feed_dict={input_image: images, correct_label: labels, keep_prob: 1.0, learning_rate:0.00025})
+                               feed_dict={input_image: images, correct_label: labels, keep_prob: 1.0, learning_rate:0.005})
 
             step += 1
             print('Epoch {:>2}, step: {}, loss: {}  '.format(epoch + 1, step, loss))
@@ -167,7 +167,7 @@ tests.test_train_nn(train_nn)
 def run(image_shape, train_data, val_data):
     epochs = 1
     batch_size = 10
-    num_classes = 3
+    num_classes = 2
 
     data_dir = './data'
     runs_dir = './runs'
@@ -190,7 +190,8 @@ def run(image_shape, train_data, val_data):
         # Path to vgg model
         vgg_path = os.path.join(data_dir, 'vgg')
         # Create function to get batches
-        get_batches_fn = helper.gen_batch_function(train_data, image_shape, num_classes)
+        train_generator = helper.gen_batch_function(train_data, image_shape, num_classes)
+        validation_generator = helper.gen_batch_function(val_data, image_shape, num_classes)
 
         # OPTIONAL: Augment Images for better results
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
@@ -203,7 +204,7 @@ def run(image_shape, train_data, val_data):
         logits, optimizer, cross_entropy_loss = optimize(nn_last_layer, correct_label, learning_rate, num_classes)
 
         # TODO: Train NN using the train_nn function
-        train_nn(sess, epochs, batch_size, get_batches_fn, optimizer, cross_entropy_loss, input_image,
+        train_nn(sess, epochs, batch_size, train_generator, optimizer, cross_entropy_loss, input_image,
                  correct_label, keep_prob, learning_rate)
 
         # TODO: Save inference data using helper.save_inference_samples
@@ -221,8 +222,8 @@ if __name__ == '__main__':
     image_shape = (160, 576)
 
     print('Collecting Data')
-    train_img_list = process_data.getData(image_shape)
-    train_data, val_data = train_test_split(train_img_list, test_size=0.15)
-    print('Finished collecting Data')
+    train_img_list = process_data.getData(image_shape, True)
+    #train_data, val_data = train_test_split(train_img_list, test_size=0.0)
+    #print('Finished collecting Data')
 
-    run(image_shape, train_data, val_data)
+    #run(image_shape, train_data, val_data)
