@@ -1,13 +1,14 @@
 import cv2
 import os
+from pathlib import Path
 import numpy as np
+import pickle
 
-data_dir = "/media/haidyn/Self Driving Car/GIT/my_github/SDC/udacity-sdcnd-Semantic-Segmentation/data/"
-output_dir = data_dir + "processed_data/"
+data_dir = r"./data/"  # location of all the data relative to the programs directory
+output_dir = data_dir + "processed_data/" # location of the processed data
 
 # get the path to all training images and their corresponding label image:
 train_img_list = []
-#train_gt_img_list = []
 
 no_road_val = 76
 road_val = 105
@@ -47,11 +48,11 @@ def translateImage(img, gt_img, file_name, new_file_name, use_cityscape, distanc
     rows, cols, _ = img.shape
 
     name_split = file_name.split(".")
-    img_name = data_dir + "processed_data/" + name_split[0] + '_' + new_file_name +".png"
+    img_name = output_dir + name_split[0] + '_' + new_file_name +".png"
     cv2.imwrite(img_name, img)
 
 
-    gt_img_name = data_dir + "processed_data/" + 'gt_' + name_split[0] + '_' + new_file_name + ".png"
+    gt_img_name = output_dir + 'gt_' + name_split[0] + '_' + new_file_name + ".png"
     new_gt_img = mapLabel(gt_img, use_cityscape)
     cv2.imwrite(gt_img_name, new_gt_img)
     train_img_list.append([img_name, gt_img_name])
@@ -62,8 +63,8 @@ def translateImage(img, gt_img, file_name, new_file_name, use_cityscape, distanc
         M_left = np.float32([[1, 0, -offset], [0, 1, 0]]) # move image left
 
         # shift the image to the right and append the process image to the list
-        img_name = data_dir + "processed_data/" + name_split[0] + '_' + new_file_name + '_right_' + str(offset) + ".png"
-        gt_img_name = data_dir + "processed_data/" + 'gt_' + name_split[0] + '_' + new_file_name + '_right_' + str(offset) + ".png"
+        img_name = output_dir + name_split[0] + '_' + new_file_name + '_right_' + str(offset) + ".png"
+        gt_img_name = output_dir + 'gt_' + name_split[0] + '_' + new_file_name + '_right_' + str(offset) + ".png"
 
         new_img = cv2.warpAffine(img, M_right, (cols, rows))
         cv2.imwrite(img_name, new_img)
@@ -74,8 +75,8 @@ def translateImage(img, gt_img, file_name, new_file_name, use_cityscape, distanc
         train_img_list.append([img_name, gt_img_name])
 
         # shift the image to the left and append the process image to the list
-        img_name = data_dir + "processed_data/" + name_split[0] + '_' + new_file_name + '_left_' + str(offset) + ".png"
-        gt_img_name = data_dir + "processed_data/" + 'gt_' + name_split[0] + '_' + new_file_name + '_left_' + str(offset) + ".png"
+        img_name = output_dir + name_split[0] + '_' + new_file_name + '_left_' + str(offset) + ".png"
+        gt_img_name = output_dir + 'gt_' + name_split[0] + '_' + new_file_name + '_left_' + str(offset) + ".png"
 
         new_img = cv2.warpAffine(img, M_left, (cols, rows))
         cv2.imwrite(img_name, new_img)
@@ -135,27 +136,53 @@ def loadAllData(train_imgs_dir, train_gt_dir, image_shape, use_cityscape, folder
             #translateImage(cv2.flip(img, -1), cv2.flip(gt_img, -1), file_name, "vert_horz_flip", use_cityscape, distance=dist, step=20)
 
 def getData(image_shape, use_cityscape):
+    """
+    Collects all the data and pre-processes them for training.
+    Saves the list of processed images for future quick loading.
+    Delete 'cityscape_list.p' or 'kitti_list.p' in '/data/processed_data/' if the data is to be re-processed
+    :param image_shape: image dimensions to resize all images too
+    :param use_cityscape: Which data-set to use, True => cityscape, False => kitti
+    :return: list of all the available processed images
+    """
 
+    # check which data set to train with
     if(use_cityscape):
         train_imgs_dir = data_dir + "cityscapes/leftImg8bit/train/"
         train_gt_dir = data_dir + "cityscapes/gtFine/train/"
 
-        folder_num = 1
+        # check if the data has already been processed and if so load the pickled data list
+        saved_file_dir = output_dir + "cityscape_list.p"
+        if Path(saved_file_dir).exists():
+            print("Loading data from ", saved_file_dir)
+            global train_img_list
+            train_img_list = pickle.load(open(saved_file_dir, "rb"))
+        else:
+            folder_num = 1
+            # the cityscape data set is broken into different folders.
+            # Iterate through each and save the data into the one folder
+            for root, dirs, files in os.walk(train_gt_dir, topdown=False):
+                for name in dirs:
+                    imgs_dir = (os.path.join(train_imgs_dir, name) + '/')
+                    gt_dir = (os.path.join(root, name) + '/')
+                    loadAllData(imgs_dir, gt_dir, image_shape, use_cityscape, folder_num, len(dirs))
+                    folder_num += 1
 
-        for root, dirs, files in os.walk(train_gt_dir, topdown=False):
-            for name in dirs:
-                imgs_dir = (os.path.join(train_imgs_dir, name) + '/')
-                gt_dir = (os.path.join(root, name) + '/')
-                loadAllData(imgs_dir, gt_dir, image_shape, use_cityscape, folder_num, len(dirs))
-                folder_num += 1
-
+            pickle.dump(train_img_list, open(saved_file_dir, "wb+"))
     else:
-        train_imgs_dir = data_dir + "data_road/training/image_2/"
-        train_gt_dir = data_dir + "data_road/training/gt_image_2/"
+        saved_file_dir = output_dir + "kitti_list.p"
+        if Path(saved_file_dir).exists():
+            print("Loading data from ", saved_file_dir)
+            global train_img_list
+            train_img_list = pickle.load(open(saved_file_dir, "rb"))
+        else:
+            train_imgs_dir = data_dir + "data_road/training/image_2/"
+            train_gt_dir = data_dir + "data_road/training/gt_image_2/"
 
-        loadAllData(train_imgs_dir, train_gt_dir, image_shape, use_cityscape, 1, 1)
+            loadAllData(train_imgs_dir, train_gt_dir, image_shape, use_cityscape, 1, 1)
+
+            pickle.dump(train_img_list, open(saved_file_dir, "wb+"))
 
 
-    print("\nTotal data size ", len(train_img_list))
+    print("\nTotal data ", len(train_img_list))
     return train_img_list
 
