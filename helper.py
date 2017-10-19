@@ -89,7 +89,7 @@ def gen_batch_function(img_data, image_shape, num_classes):
 
                 # convert the gt_image label to onehot encodding
                 #https://stackoverflow.com/questions/36960320/convert-a-2d-matrix-to-a-3d-one-hot-matrix-numpy
-                onehot = (np.arange(gt_image.max()) == gt_image[:, :, None] - 1).astype(int)
+                onehot = (np.arange(num_classes) == gt_image[:, :, None] - 1).astype(int)
 
                 #print("onehot ", np.shape(onehot))
 
