@@ -4,6 +4,7 @@ import helper
 import warnings
 from distutils.version import LooseVersion
 import project_tests as tests
+import numpy as np
 
 import process_data
 from sklearn.model_selection import train_test_split
@@ -29,7 +30,6 @@ def load_vgg(sess, vgg_path):
     :param vgg_path: Path to vgg folder, containing "variables/" and "saved_model.pb"
     :return: Tuple of Tensors from VGG model (image_input, keep_prob, layer3_out, layer4_out, layer7_out)
     """
-    # TODO: Implement function
     #   Use tf.saved_model.loader.load to load the model and weights
     vgg_tag = 'vgg16'
     vgg_input_tensor_name = 'image_input:0'
@@ -60,18 +60,16 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :param num_classes: Number of classes to classify
     :return: The Tensor for the last layer of output
     """
-    # TODO: Implement function
-
     fcn = tf.layers.conv2d(vgg_layer7_out, 4096, 1, strides=1, padding='same', use_bias=False,
                            kernel_initializer=tf.truncated_normal_initializer(stddev=0.1),
                            kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
     fcn = tf.layers.batch_normalization(fcn, training=True)
-    fcn = tf.layers.conv2d(fcn, 2046, 3, strides=1, padding='same', use_bias=False,
+    '''fcn = tf.layers.conv2d(fcn, 2046, 3, strides=1, padding='same', use_bias=False,
                            kernel_initializer=tf.truncated_normal_initializer(stddev=0.1),
                            kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-    fcn = tf.layers.batch_normalization(fcn, training=True)
+    fcn = tf.layers.batch_normalization(fcn, training=True)'''
 
-    d3 = tf.layers.conv2d_transpose(fcn, 1024, 3, strides=2, padding='same', use_bias=False,
+    d3 = tf.layers.conv2d_transpose(fcn, 512, 3, strides=2, padding='same', use_bias=False,
                                     kernel_initializer=tf.truncated_normal_initializer(stddev=0.1),
                                     kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
     d3 = tf.layers.batch_normalization(d3, training=True)
@@ -81,13 +79,17 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     d3 = tf.layers.batch_normalization(d3, training=True)
     d3 = tf.add(d3, vgg_layer4_out)
 
-    d4 = tf.layers.conv2d_transpose(d3, 256, 3, strides=2, padding='same', use_bias=False,
+    d4 = tf.layers.conv2d(d3, 512, 1, strides=1, padding='same', use_bias=False,
+                          kernel_initializer=tf.truncated_normal_initializer(stddev=0.1),
+                          kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    d4 = tf.layers.batch_normalization(d4, training=True)
+    d4 = tf.layers.conv2d_transpose(d4, 256, 3, strides=2, padding='same', use_bias=False,
                                     kernel_initializer=tf.truncated_normal_initializer(stddev=0.1),
                                     kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
     d4 = tf.layers.batch_normalization(d4, training=True)
     d4 = tf.layers.conv2d(d4, 256, 1, strides=1, padding='same', use_bias=False,
                           kernel_initializer=tf.truncated_normal_initializer(stddev=0.1),
-                       kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+                          kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
     d4 = tf.layers.batch_normalization(d4, training=True)
     d4 = tf.add(d4, vgg_layer3_out)
 
@@ -95,16 +97,15 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
                           kernel_initializer=tf.truncated_normal_initializer(stddev=0.1),
                           kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
     d5 = tf.layers.batch_normalization(d5, training=True)
-
-    d6 = tf.layers.conv2d_transpose(d5, num_classes, 16, strides=8, padding='same',
+    d5 = tf.layers.conv2d_transpose(d5, num_classes, 16, strides=8, padding='same',
                                     kernel_initializer=tf.truncated_normal_initializer(stddev=0.1),
                                     kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-    d6 = tf.layers.batch_normalization(d6, training=True)
+    d5 = tf.layers.batch_normalization(d5, training=True)
 
-    #d7 = tf.layers.conv2d(d6, num_classes, 1, strides=1, padding='same', use_bias=False,
-    #                      kernel_initializer=tf.truncated_normal_initializer(stddev=0.1),
-    #                      kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-    #d7 = tf.layers.batch_normalization(d7, training=True)
+    d6 = tf.layers.conv2d(d5, num_classes, 1, strides=1, padding='same', use_bias=False,
+                          kernel_initializer=tf.truncated_normal_initializer(stddev=0.1),
+                          kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    #d6 = tf.layers.batch_normalization(d6, training=True)
 
     return d6
 tests.test_layers(layers)
@@ -119,14 +120,12 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :param num_classes: Number of classes to classify
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
-    # TODO: Implement function
     logits = tf.reshape(nn_last_layer, (-1, num_classes))
     cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=correct_label))
 
     loss = tf.reduce_mean(cross_entropy_loss)
 
     optimizer = tf.train.AdamOptimizer(learning_rate).minimize(loss)
-
 
     return logits, optimizer, cross_entropy_loss
 tests.test_optimize(optimize)
@@ -150,24 +149,24 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     sess.run(tf.global_variables_initializer())
     sess.run(tf.local_variables_initializer())
 
-    # TODO: Implement function
     for epoch in range(epochs):
         batch = 0
         for images, labels in get_batches_fn(batch_size):
             _, loss = sess.run([train_op, cross_entropy_loss],
-                               feed_dict={input_image: images, correct_label: labels, keep_prob: 1.0, learning_rate:0.005})
+                               feed_dict={input_image: images, correct_label: labels, keep_prob: 1.0, learning_rate:0.001})
 
             batch += 1
             print('Epoch {}, batch: {}, loss: {}  '.format(epoch + 1, batch, loss))
+
+            # TODO: add validation data test
 
 
 tests.test_train_nn(train_nn)
 
 
-def run(image_shape, train_data, val_data):
+def run(image_shape, num_classes, train_data, val_data):
     epochs = 1
     batch_size = 10
-    num_classes = 2
 
     data_dir = './data'
     runs_dir = './runs'
@@ -220,10 +219,17 @@ def run(image_shape, train_data, val_data):
 if __name__ == '__main__':
 
     image_shape = (160, 576)
+    use_cityscape = True
 
+    if use_cityscape:
+        num_classes = 20
+    else:
+        num_classes = 2
+
+    # load and pre-process the training data
     print('Collecting Data')
-    train_img_list = process_data.getData(image_shape, True)
+    train_img_list = process_data.getData(image_shape, use_cityscape)
     train_data, val_data = train_test_split(train_img_list, test_size=0.0)
     print('Finished collecting Data')
 
-    run(image_shape, train_data, val_data)
+    run(image_shape, num_classes, train_data, val_data)

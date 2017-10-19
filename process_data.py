@@ -4,16 +4,13 @@ from pathlib import Path
 import numpy as np
 import pickle
 
+from labels import cityscapes_labels, kitti_labels
+
 data_dir = r"./data/"  # location of all the data relative to the programs directory
 output_dir = data_dir + "processed_data/" # location of the processed data
 
 # get the path to all training images and their corresponding label image:
 train_img_list = []
-
-no_road_val = 76
-road_val = 105
-other_road_val = 0
-image_pad_val = 255
 
 dist = 0
 
@@ -24,12 +21,13 @@ def mapLabel(data, use_cityscape):
     palette = None # all the possible values that are in the data
     key = None # key gives the new values you wish palette to be mapped to.
     if(use_cityscape):
-        palette = [i-1 for i in range(35)]
-        key = np.array([2 for i in range(35)])
-        key[8] = 1
+        palette = [label.id for label in cityscapes_labels] #[i-1 for i in range(35)] # all the gt_image values observed in the image data
+        key = np.array([label.trainId for label in cityscapes_labels]) #[2 for i in range(35)]) # conversion of original gt_image values into training id's
+        #key[8] = 1
     else:
-        palette = [other_road_val, no_road_val, road_val, image_pad_val]
-        key = np.array([1, 2, 1, 0])
+        palette = [label.id for label in kitti_labels] # other_road_val, no_road_val, road_val, image_pad_val]
+        key = np.array([label.trainId for label in kitti_labels]) # np.array([1, 2, 1, 0])
+
     index = np.digitize(data.ravel(), palette, right=True)
 
     return np.array(key[index].reshape(data.shape))

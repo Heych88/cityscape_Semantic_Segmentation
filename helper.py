@@ -13,8 +13,9 @@ from tqdm import tqdm
 import cv2
 
 from sklearn.utils import shuffle
+from labels import cityscapes_labels, kitti_labels
 
-num_classes = 2
+#num_classes = 2
 
 class DLProgress(tqdm):
     last_block = 0
@@ -87,11 +88,9 @@ def gen_batch_function(img_data, image_shape, num_classes):
                 image = scipy.misc.imread(image_file[0])
                 gt_image = scipy.misc.imread(image_file[1])
 
-                # convert the gt_image label to onehot encodding
+                # convert the gt_image label to onehot encoding
                 #https://stackoverflow.com/questions/36960320/convert-a-2d-matrix-to-a-3d-one-hot-matrix-numpy
                 onehot = (np.arange(num_classes) == gt_image[:, :, None] - 1).astype(int)
-
-                #print("onehot ", np.shape(onehot))
 
                 images.append(image)
                 gt_images.append(onehot)
@@ -109,7 +108,7 @@ def label_img_to_color(img):
     label_to_color = {
         0: [0, 255, 0],
         1: [255, 0,0],
-        2: [ 0, 0, 0],
+        2: [ 0, 0, 255],
         3: [0,0,0]
         }
 
