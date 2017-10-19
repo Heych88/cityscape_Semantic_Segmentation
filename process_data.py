@@ -18,16 +18,23 @@ dist = 0
 
 # create a function mapping id to trainId
 # https://stackoverflow.com/questions/13572448/change-values-in-a-numpy-array
-def mapLabel(data):
+def mapLabel(data, use_cityscape):
     # palette must be given in sorted order
-    palette = [other_road_val, no_road_val, road_val, image_pad_val]
-    # key gives the new values you wish palette to be mapped to.
-    key = np.array([1, 2, 1, 0])
+    palette = None
+    key = None
+    if(use_cityscape):
+        palette = [i-1 for i in range(35)]
+        key = np.array([0 for i in range(35)])
+        key[8] = 1
+    else:
+        palette = [other_road_val, no_road_val, road_val, image_pad_val]
+        # key gives the new values you wish palette to be mapped to.
+        key = np.array([1, 2, 1, 0])
     index = np.digitize(data.ravel(), palette, right=True)
 
     return np.array(key[index].reshape(data.shape))
 
-def translateImage(img, gt_img, file_name, new_file_name, distance=0, step=20):
+def translateImage(img, gt_img, file_name, new_file_name, use_cityscape, distance=0, step=20):
     # Translation of image data to create more training data.
     # The new image names will include the offset pixel count used.
     # img : 3D training image
@@ -46,7 +53,7 @@ def translateImage(img, gt_img, file_name, new_file_name, distance=0, step=20):
 
 
     gt_img_name = data_dir + "processed_data/" + 'gt_' + name_split[0] + '_' + new_file_name + ".png"
-    new_gt_img = mapLabel(gt_img)
+    new_gt_img = mapLabel(gt_img, use_cityscape)
     cv2.imwrite(gt_img_name, new_gt_img)
     train_img_list.append([img_name, gt_img_name])
 
@@ -63,7 +70,7 @@ def translateImage(img, gt_img, file_name, new_file_name, distance=0, step=20):
         cv2.imwrite(img_name, new_img)
 
         new_gt_img = cv2.warpAffine(gt_img, M_right, (cols, rows), borderValue=image_pad_val)
-        new_gt_img = mapLabel(new_gt_img)
+        new_gt_img = mapLabel(new_gt_img, use_cityscape)
         cv2.imwrite(gt_img_name, new_gt_img)
         train_img_list.append([img_name, gt_img_name])
 
@@ -75,7 +82,7 @@ def translateImage(img, gt_img, file_name, new_file_name, distance=0, step=20):
         cv2.imwrite(img_name, new_img)
 
         new_gt_img = cv2.warpAffine(gt_img, M_left, (cols, rows), borderValue=image_pad_val)
-        new_gt_img = mapLabel(new_gt_img)
+        new_gt_img = mapLabel(new_gt_img, use_cityscape)
         cv2.imwrite(gt_img_name, new_gt_img)
         train_img_list.append([img_name, gt_img_name])
 
@@ -92,12 +99,21 @@ def loadAllData(train_imgs_dir, train_gt_dir, image_shape, use_cityscape, folder
                                                                        folder_num, tot_folders), end=' ')
                 # open and resize the input images
                 img_path = train_gt_dir + gt_file_name
-                gt_img = cv2.resize(cv2.imread(img_path, 0), (image_shape[1], image_shape[0]))
+                gt_img = cv2.resize(cv2.imread(img_path, -1), (image_shape[1], image_shape[0]))
 
                 file_name = name_split[0] + '_leftImg8bit.png'
                 img_path = train_imgs_dir + file_name
-
                 img = cv2.resize(cv2.imread(img_path, -1), (image_shape[1], image_shape[0]))
+
+                # translate the input images into the data folder
+                translateImage(img, gt_img, file_name, "normal", use_cityscape, distance=dist, step=20)
+                # translate the horizontally flipped input images
+                translateImage(cv2.flip(img, 1), cv2.flip(gt_img, 1), file_name, "horz_flip", distance=dist, step=20)
+                # translate the vertically flipped input images
+                translateImage(cv2.flip(img, 0), cv2.flip(gt_img, 0), file_name, "vert_flip", distance=dist, step=20)
+                # translate the horizontally and vertically flipped input images
+                translateImage(cv2.flip(img, -1), cv2.flip(gt_img, -1), file_name, "vert_horz_flip", distance=dist, step=20)
+
         else:
             print("\rprocessing file {}/{} in folder {}/{}".format((file_num + 1), len(gt_file_names),
                                                                    folder_num, tot_folders), end=' ')
@@ -110,14 +126,14 @@ def loadAllData(train_imgs_dir, train_gt_dir, image_shape, use_cityscape, folder
             img_path = train_imgs_dir + file_name
             img = cv2.resize(cv2.imread(img_path, -1), (image_shape[1], image_shape[0]))
 
-        '''# translate the input images into the data folder
-        translateImage(img, gt_img, file_name, "normal", distance=dist, step=20)
-        # translate the horizontally flipped input images
-        translateImage(cv2.flip(img, 1), cv2.flip(gt_img, 1), file_name, "horz_flip", distance=dist, step=20)
-        # translate the vertically flipped input images
-        translateImage(cv2.flip(img, 0), cv2.flip(gt_img, 0), file_name, "vert_flip", distance=dist, step=20)
-        # translate the horizontally and vertically flipped input images
-        translateImage(cv2.flip(img, -1), cv2.flip(gt_img, -1), file_name, "vert_horz_flip", distance=dist, step=20)'''
+            # translate the input images into the data folder
+            translateImage(img, gt_img, file_name, "normal", use_cityscape, distance=dist, step=20)
+            # translate the horizontally flipped input images
+            translateImage(cv2.flip(img, 1), cv2.flip(gt_img, 1), file_name, "horz_flip", distance=dist, step=20)
+            # translate the vertically flipped input images
+            translateImage(cv2.flip(img, 0), cv2.flip(gt_img, 0), file_name, "vert_flip", distance=dist, step=20)
+            # translate the horizontally and vertically flipped input images
+            translateImage(cv2.flip(img, -1), cv2.flip(gt_img, -1), file_name, "vert_horz_flip", distance=dist, step=20)
 
 def getData(image_shape, use_cityscape):
 

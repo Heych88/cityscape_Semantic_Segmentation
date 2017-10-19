@@ -152,13 +152,13 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
 
     # TODO: Implement function
     for epoch in range(epochs):
-        step = 0
+        batch = 0
         for images, labels in get_batches_fn(batch_size):
             _, loss = sess.run([train_op, cross_entropy_loss],
                                feed_dict={input_image: images, correct_label: labels, keep_prob: 1.0, learning_rate:0.005})
 
-            step += 1
-            print('Epoch {:>2}, step: {}, loss: {}  '.format(epoch + 1, step, loss))
+            batch += 1
+            print('Epoch {}, batch: {}, loss: {}  '.format(epoch + 1, batch, loss))
 
 
 tests.test_train_nn(train_nn)
@@ -223,7 +223,7 @@ if __name__ == '__main__':
 
     print('Collecting Data')
     train_img_list = process_data.getData(image_shape, True)
-    #train_data, val_data = train_test_split(train_img_list, test_size=0.0)
-    #print('Finished collecting Data')
+    train_data, val_data = train_test_split(train_img_list, test_size=0.0)
+    print('Finished collecting Data')
 
-    #run(image_shape, train_data, val_data)
+    run(image_shape, train_data, val_data)
