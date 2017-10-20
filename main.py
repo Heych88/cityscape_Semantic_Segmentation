@@ -153,7 +153,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
         batch = 0
         for images, labels in get_batches_fn(batch_size):
             _, loss = sess.run([train_op, cross_entropy_loss],
-                               feed_dict={input_image: images, correct_label: labels, keep_prob: 1.0, learning_rate:0.001})
+                               feed_dict={input_image: images, correct_label: labels, keep_prob: 1.0, learning_rate:0.0002})
 
             batch += 1
             print('Epoch {}, batch: {}, loss: {}  '.format(epoch + 1, batch, loss))
@@ -164,7 +164,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
 tests.test_train_nn(train_nn)
 
 
-def run(image_shape, num_classes, train_data, val_data):
+def run(image_shape, num_classes, train_data, val_data, use_cityscape):
     epochs = 1
     batch_size = 10
 
@@ -207,7 +207,7 @@ def run(image_shape, num_classes, train_data, val_data):
                  correct_label, keep_prob, learning_rate)
 
         # TODO: Save inference data using helper.save_inference_samples
-        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
+        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image, use_cityscape)
 
         # OPTIONAL: Apply the trained model to a video
 
@@ -232,4 +232,5 @@ if __name__ == '__main__':
     train_data, val_data = train_test_split(train_img_list, test_size=0.0)
     print('Finished collecting Data')
 
-    run(image_shape, num_classes, train_data, val_data)
+    # train the model
+    run(image_shape, num_classes, train_data, val_data, use_cityscape)

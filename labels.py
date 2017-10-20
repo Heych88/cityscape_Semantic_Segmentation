@@ -92,8 +92,8 @@ cityscapes_labels = [
 
 kitti_labels = [
     #       name                      id    trainId   category            catId     hasInstances   ignoreInEval   color
-    Label(  'ground'               ,   0 ,        0 , 'flat'            , 1       , False        , False        , (81, 0, 81)   ),
-    Label(  'no road'              ,  76 ,       19 , 'void'            , 0       , False        , True         , (  0,  0,  0) ),
+    Label(  'ground'               ,   0 ,        0 , 'flat'            , 1       , False        , False        , (128, 64, 128)),
+    Label(  'no road'              ,  76 ,        1 , 'void'            , 0       , False        , True         , (  0,  0,  0) ),
     Label(  'road'                 , 105 ,        0 , 'flat'            , 1       , False        , False        , (128, 64, 128)),
-    Label(  'out of roi'           , 255 ,       19 , 'void'            , 0       , False        , True         , (  0,  0,  0) ),
+    Label(  'out of roi'           , 255 ,        1 , 'void'            , 0       , False        , True         , (  0,  0,  0) ),
 ]

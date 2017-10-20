@@ -15,7 +15,6 @@ import cv2
 from sklearn.utils import shuffle
 from labels import cityscapes_labels, kitti_labels
 
-#num_classes = 2
 
 class DLProgress(tqdm):
     last_block = 0
@@ -99,31 +98,27 @@ def gen_batch_function(img_data, image_shape, num_classes):
 
     return get_batches_fn
 
-'''
-The below function is originally from Fredrik Gustafsson and modified from 
-https://github.com/fregu856/segmentation
-'''
 # function for colorizing a label image:
-def label_img_to_color(img):
-    label_to_color = {
-        0: [0, 255, 0],
-        1: [255, 0,0],
-        2: [ 0, 0, 255],
-        3: [0,0,0]
-        }
+def testDataToColorImg(img, image_shape, use_cityscape):
 
-    img_height, img_width = img.shape
+    color_palette = None
+    if (use_cityscape):
+        color_palette = {label.trainId : label.color for label in cityscapes_labels}  # all the gt_image values observed in the image data
+    else:
+        color_palette = {label.trainId: label.color for label in kitti_labels}
 
-    img_color = np.zeros((img_height, img_width, 3)) #num_classes))
+    img_height = image_shape[0]
+    img_width = image_shape[1]
+
+    out_image = np.zeros((img_height, img_width, 3))
     for row in range(img_height):
         for col in range(img_width):
-            label = img[row, col]
+            pixel_value = img[row, col]
+            out_image[row, col] = np.array(color_palette[pixel_value])
 
-            img_color[row, col] = np.array(label_to_color[label])
+    return out_image
 
-    return img_color
-
-def gen_test_output(sess, logits, keep_prob, image_pl, data_folder, image_shape):
+def gen_test_output(sess, logits, keep_prob, image_pl, data_folder, image_shape, use_cityscape):
     """
     Generate test output using the test images
     :param sess: TF session
@@ -142,13 +137,13 @@ def gen_test_output(sess, logits, keep_prob, image_pl, data_folder, image_shape)
         y = (tf.nn.softmax(logit)).eval()
 
         gray = np.reshape(y.argmax(axis=1), image_shape)
-        colour = np.uint8(label_img_to_color(gray))
+        colour = np.uint8(testDataToColorImg(gray, image_shape, use_cityscape))
         street = cv2.addWeighted(image, 0.35, colour, 0.65, 0)
 
         yield os.path.basename(image_file), np.array(street)
 
 
-def save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image):
+def save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image, use_cityscape):
     # Make folder for current run
     output_dir = os.path.join(runs_dir, str(time.time()))
     if os.path.exists(output_dir):
@@ -158,7 +153,7 @@ def save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_p
     print('Training Finished. Saving test images')
     # Run NN on test images and save them to HD
     image_outputs = gen_test_output(
-        sess, logits, keep_prob, input_image, os.path.join(data_dir, 'data_road/testing'), image_shape)
+        sess, logits, keep_prob, input_image, os.path.join(data_dir, 'data_road/testing'), image_shape, use_cityscape)
     for name, image in image_outputs:
         scipy.misc.imsave(os.path.join(output_dir, name), image)
 
