@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import numpy as np
 import pickle
-
+from sklearn.utils import shuffle
 from labels import cityscapes_labels, kitti_labels
 
 data_dir = r"./data/"  # location of all the data relative to the programs directory
@@ -182,5 +182,5 @@ def getData(image_shape, use_cityscape):
 
 
     print("\nTotal data ", len(train_img_list))
-    return train_img_list
+    return shuffle(train_img_list)
 

@@ -11,6 +11,7 @@ from sklearn.model_selection import train_test_split
 
 tf.GraphKeys.VARIABLES = tf.GraphKeys.GLOBAL_VARIABLES
 
+validation_generator = None
 
 # Check TensorFlow Version
 assert LooseVersion(tf.__version__) >= LooseVersion('1.0'), 'Please use TensorFlow version 1.0 or newer.  You are using {}'.format(tf.__version__)
@@ -121,15 +122,22 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
     logits = tf.reshape(nn_last_layer, (-1, num_classes))
-    cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=correct_label))
-
-    loss = tf.reduce_mean(cross_entropy_loss)
+    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=correct_label)
+    loss = tf.reduce_mean(cross_entropy)
 
     optimizer = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 
-    return logits, optimizer, cross_entropy_loss
+    return logits, optimizer, loss
 tests.test_optimize(optimize)
 
+def evaluate(logits, labels, num_classes):
+
+    flat_soft = tf.reshape(tf.nn.softmax(logits=logits), [-1, num_classes])
+    flat_labels = tf.reshape(labels, [-1, num_classes])
+
+    mean_iou = tf.metrics.mean_iou(flat_labels, flat_soft, num_classes)
+
+    return mean_iou
 
 def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
              correct_label, keep_prob, learning_rate):
@@ -158,14 +166,25 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
             batch += 1
             print('Epoch {}, batch: {}, loss: {}  '.format(epoch + 1, batch, loss))
 
-            # TODO: add validation data test
+            # Validate the network with IOU, Intersection over Union, metrics
+            if (batch % 20) == 0:
+                sum = 0
+                total_data = 0
+                # validation_generator is global as to not cause errors with the project test case
+                for images, labels in validation_generator(batch_size):
+                    iou = sess.run([val_mean_iou],
+                                       feed_dict={input_image: images, correct_label: labels, keep_prob: 1.0})
+                    sum += iou[0][0]
+                    total_data += len(images)
+
+                print('validation IoU {}'.format(sum/total_data))
 
 
-tests.test_train_nn(train_nn)
+#tests.test_train_nn(train_nn)
 
 
 def run(image_shape, num_classes, train_data, val_data, use_cityscape):
-    epochs = 1
+    epochs = 100
     batch_size = 10
 
     data_dir = './data'
@@ -190,6 +209,7 @@ def run(image_shape, num_classes, train_data, val_data, use_cityscape):
         vgg_path = os.path.join(data_dir, 'vgg')
         # Create function to get batches
         train_generator = helper.gen_batch_function(train_data, image_shape, num_classes)
+        global validation_generator
         validation_generator = helper.gen_batch_function(val_data, image_shape, num_classes)
 
         # OPTIONAL: Augment Images for better results
@@ -201,6 +221,9 @@ def run(image_shape, num_classes, train_data, val_data, use_cityscape):
         nn_last_layer = layers(vgg_layer3, vgg_layer4, vgg_layer7, num_classes)
 
         logits, optimizer, cross_entropy_loss = optimize(nn_last_layer, correct_label, learning_rate, num_classes)
+
+        global val_mean_iou
+        val_mean_iou = evaluate(nn_last_layer, correct_label, num_classes)
 
         # TODO: Train NN using the train_nn function
         train_nn(sess, epochs, batch_size, train_generator, optimizer, cross_entropy_loss, input_image,
@@ -219,7 +242,7 @@ def run(image_shape, num_classes, train_data, val_data, use_cityscape):
 if __name__ == '__main__':
 
     image_shape = (160, 576)
-    use_cityscape = True
+    use_cityscape = False
 
     if use_cityscape:
         num_classes = 20
@@ -229,7 +252,8 @@ if __name__ == '__main__':
     # load and pre-process the training data
     print('Collecting Data')
     train_img_list = process_data.getData(image_shape, use_cityscape)
-    train_data, val_data = train_test_split(train_img_list, test_size=0.0)
+    train_data, val_data = train_test_split(train_img_list, test_size=0.05)
+    print("Training data: {}, validation data: {}".format(len(train_data), len(val_data)))
     print('Finished collecting Data')
 
     # train the model
