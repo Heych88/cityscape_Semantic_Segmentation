@@ -25,43 +25,6 @@ class DLProgress(tqdm):
         self.last_block = block_num
 
 
-def maybe_download_pretrained_vgg(data_dir):
-    """
-    Download and extract pretrained vgg model if it doesn't exist
-    :param data_dir: Directory to download the model to
-    """
-    vgg_filename = 'vgg.zip'
-    vgg_path = os.path.join(data_dir, 'vgg')
-    vgg_files = [
-        os.path.join(vgg_path, 'variables/variables.data-00000-of-00001'),
-        os.path.join(vgg_path, 'variables/variables.index'),
-        os.path.join(vgg_path, 'saved_model.pb')]
-
-    missing_vgg_files = [vgg_file for vgg_file in vgg_files if not os.path.exists(vgg_file)]
-    if missing_vgg_files:
-        # Clean vgg dir
-        if os.path.exists(vgg_path):
-            shutil.rmtree(vgg_path)
-        os.makedirs(vgg_path)
-
-        # Download vgg
-        print('Downloading pre-trained vgg model...')
-        with DLProgress(unit='B', unit_scale=True, miniters=1) as pbar:
-            urlretrieve(
-                'https://s3-us-west-1.amazonaws.com/udacity-selfdrivingcar/vgg.zip',
-                os.path.join(vgg_path, vgg_filename),
-                pbar.hook)
-
-        # Extract vgg
-        print('Extracting model...')
-        zip_ref = zipfile.ZipFile(os.path.join(vgg_path, vgg_filename), 'r')
-        zip_ref.extractall(data_dir)
-        zip_ref.close()
-
-        # Remove zip file to save space
-        os.remove(os.path.join(vgg_path, vgg_filename))
-
-
 def gen_batch_function(img_data, image_shape, num_classes):
     """
     Generate function to create batches of training data
@@ -99,13 +62,9 @@ def gen_batch_function(img_data, image_shape, num_classes):
     return get_batches_fn
 
 # function for colorizing a label image:
-def testDataToColorImg(img, image_shape, use_cityscape):
+def testDataToColorImg(img, image_shape):
 
-    color_palette = None
-    if (use_cityscape):
-        color_palette = {label.trainId : label.color for label in cityscapes_labels}  # all the gt_image values observed in the image data
-    else:
-        color_palette = {label.trainId: label.color for label in kitti_labels}
+    color_palette = {label.id : label.color for label in cityscapes_labels}  # all the gt_image values observed in the image data
 
     img_height = image_shape[0]
     img_width = image_shape[1]
@@ -118,7 +77,7 @@ def testDataToColorImg(img, image_shape, use_cityscape):
 
     return out_image
 
-def gen_test_output(sess, logits, keep_prob, image_pl, data_folder, image_shape, use_cityscape):
+def gen_test_output(sess, logits, keep_prob, image_pl, data_folder, image_shape, is_training):
     """
     Generate test output using the test images
     :param sess: TF session
@@ -129,21 +88,21 @@ def gen_test_output(sess, logits, keep_prob, image_pl, data_folder, image_shape,
     :param image_shape: Tuple - Shape of image
     :return: Output for for each test image
     """
-    for image_file in glob(os.path.join(data_folder, 'image_2', '*.png')):
+    for image_file in glob(os.path.join(data_folder, '*_leftImg8bit.png')):
 
         image = cv2.resize(cv2.imread(image_file), (image_shape[1], image_shape[0]))
 
-        logit = sess.run(logits, feed_dict={image_pl: [image], keep_prob: 1})
+        logit = sess.run(logits, feed_dict={image_pl: [image], keep_prob: 1, is_training: False})
         y = (tf.nn.softmax(logit)).eval()
 
         gray = np.reshape(y.argmax(axis=1), image_shape)
-        colour = np.uint8(testDataToColorImg(gray, image_shape, use_cityscape))
+        colour = np.uint8(testDataToColorImg(gray, image_shape))
         street = cv2.addWeighted(image, 0.35, colour, 0.65, 0)
 
         yield os.path.basename(image_file), np.array(street)
 
 
-def save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image, use_cityscape):
+def save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image, is_training):
     # Make folder for current run
     output_dir = os.path.join(runs_dir, str(time.time()))
     if os.path.exists(output_dir):
@@ -153,7 +112,7 @@ def save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_p
     print('Training Finished. Saving test images')
     # Run NN on test images and save them to HD
     image_outputs = gen_test_output(
-        sess, logits, keep_prob, input_image, os.path.join(data_dir, 'data_road/testing'), image_shape, use_cityscape)
+        sess, logits, keep_prob, input_image, os.path.join(data_dir, 'cityscapes/leftImg8bit/train/lindau'), image_shape, is_training)
     for name, image in image_outputs:
         scipy.misc.imsave(os.path.join(output_dir, name), image)
 
